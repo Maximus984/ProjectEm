@@ -16,6 +16,8 @@ const links = [
   ["/community", "Community"]
 ] as const;
 
+const BASE_URL = import.meta.env.BASE_URL;
+
 type DeferredPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
@@ -93,7 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         preload="auto"
         aria-hidden="true"
       >
-        <source src="/media/galaxy-loop.mp4" type="video/mp4" />
+        <source src={`${BASE_URL}media/galaxy-loop.mp4`} type="video/mp4" />
       </video>
       <div className="bg-video-overlay" />
       <div className="grid-stars" />
@@ -103,7 +105,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-6">
           <Link to="/" className="flex items-center gap-2 text-sm font-semibold tracking-wide text-white md:gap-3">
             <img
-              src="/branding/maxx-forge-logo.png"
+              src={`${BASE_URL}branding/maxx-forge-logo.png`}
               alt="Project Paige by MAXX Forge Studio logo"
               className="h-11 w-11 rounded-xl border border-white/20 bg-black/30 object-contain p-1 shadow-glow md:h-12 md:w-12"
             />

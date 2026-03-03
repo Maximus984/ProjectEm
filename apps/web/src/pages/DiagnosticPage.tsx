@@ -65,6 +65,7 @@ const maxBreaks = 2;
 const breakSecondsPerBreak = 120;
 const maxBreakSeconds = maxBreaks * breakSecondsPerBreak;
 const diagnosticDurationSeconds = 20 * 60;
+const BASE_URL = import.meta.env.BASE_URL;
 
 const confidenceOptions: Array<{ value: DiagnosticConfidence; label: string }> = [
   { value: "very_confident", label: "Very confident" },
@@ -721,7 +722,7 @@ export function DiagnosticPage() {
               playsInline
               preload="metadata"
             >
-              <source src="/media/diagnostic-intro.mp4" type="video/mp4" />
+              <source src={`${BASE_URL}media/diagnostic-intro.mp4`} type="video/mp4" />
             </video>
           </div>
           <button

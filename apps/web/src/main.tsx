@@ -14,10 +14,13 @@ const queryClient = new QueryClient({
   }
 });
 
+const BASE_URL = import.meta.env.BASE_URL;
+const ROUTER_BASE = BASE_URL === "/" ? "" : BASE_URL.replace(/\/$/, "");
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename={ROUTER_BASE}>
         <App />
       </BrowserRouter>
     </QueryClientProvider>
@@ -26,7 +29,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch((error) => {
+    navigator.serviceWorker.register(`${BASE_URL}sw.js`).catch((error) => {
       console.warn("Service worker registration failed:", error);
     });
   });

@@ -1,28 +1,37 @@
-const CACHE_NAME = "projectm-shell-v2";
+const CACHE_NAME = "projectm-shell-v3";
+const scopePath = new URL(self.registration.scope).pathname.replace(/\/$/, "");
+
+const withScope = (path) => `${scopePath}${path}`;
+
 const STATIC_ASSETS = [
-  "/",
-  "/index.html",
-  "/manifest.webmanifest",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-  "/icons/icon-maskable-192.png",
-  "/icons/icon-maskable-512.png",
-  "/branding/maxx-forge-mark.png",
-  "/branding/maxx-forge-logo.png"
+  withScope("/"),
+  withScope("/index.html"),
+  withScope("/manifest.webmanifest"),
+  withScope("/icons/icon-192.png"),
+  withScope("/icons/icon-512.png"),
+  withScope("/icons/icon-maskable-192.png"),
+  withScope("/icons/icon-maskable-512.png"),
+  withScope("/branding/maxx-forge-mark.png"),
+  withScope("/branding/maxx-forge-logo.png")
 ];
+
+const INDEX_FALLBACK = withScope("/index.html");
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).catch(() => Promise.resolve())
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .catch(() => Promise.resolve())
   );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
-    )
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
   );
   self.clients.claim();
 });
@@ -34,8 +43,8 @@ self.addEventListener("fetch", (event) => {
   }
 
   const requestUrl = new URL(request.url);
-  if (requestUrl.pathname.startsWith("/api/")) {
-    event.respondWith(fetch(request).catch(() => caches.match("/index.html")));
+  if (requestUrl.pathname.includes("/api/")) {
+    event.respondWith(fetch(request).catch(() => caches.match(INDEX_FALLBACK)));
     return;
   }
 
@@ -44,13 +53,17 @@ self.addEventListener("fetch", (event) => {
       if (cachedResponse) {
         return cachedResponse;
       }
+
       return fetch(request)
         .then((networkResponse) => {
           const clone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => Promise.resolve());
+          caches
+            .open(CACHE_NAME)
+            .then((cache) => cache.put(request, clone))
+            .catch(() => Promise.resolve());
           return networkResponse;
         })
-        .catch(() => caches.match("/index.html"));
+        .catch(() => caches.match(INDEX_FALLBACK));
     })
   );
 });
