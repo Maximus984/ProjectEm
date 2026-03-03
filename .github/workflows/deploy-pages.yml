@@ -21,7 +21,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     env:
-      BASE_PATH: /${{ github.event.repository.name }}/
+      BASE_PATH: /
       VITE_API_BASE: ${{ vars.VITE_API_BASE }}
     steps:
       - name: Checkout
