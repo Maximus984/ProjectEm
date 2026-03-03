@@ -1,0 +1,197 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  BREAK
+  SUBMITTED
+  AUTO_SUBMITTED
+}
+
+enum BehaviorEventType {
+  TAB_BLUR
+  TAB_FOCUS
+  COPY_PASTE
+  RAPID_ANSWERING
+  BREAK_REQUEST
+  RESUME
+  SUBMIT
+  HEARTBEAT
+}
+
+enum OverrideVerdict {
+  APPROVED
+  FLAGGED
+  CLEARED
+}
+
+model Tenant {
+  id        String        @id @default(cuid())
+  name      String
+  createdAt DateTime      @default(now())
+  users     User[]
+  tests     Test[]
+  attempts  TestAttempt[]
+}
+
+model User {
+  id             String        @id @default(cuid())
+  tenantId       String
+  email          String        @unique
+  role           String
+  createdAt      DateTime      @default(now())
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  attempts       TestAttempt[] @relation("StudentAttempts")
+  auditLogActor  AuditLog[]    @relation("AuditActor")
+
+  @@index([tenantId])
+}
+
+model Test {
+  id              String        @id @default(cuid())
+  tenantId        String
+  title           String
+  totalSeconds    Int
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sections        TestSection[]
+  attempts        TestAttempt[]
+
+  @@index([tenantId])
+}
+
+model TestSection {
+  id          String   @id @default(cuid())
+  testId      String
+  title       String
+  order       Int
+  createdAt   DateTime @default(now())
+  test        Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  items       Item[]
+
+  @@index([testId, order])
+}
+
+model Item {
+  id            String   @id @default(cuid())
+  sectionId     String
+  prompt        String
+  itemType      String
+  correctAnswer String
+  order         Int
+  expectedTime  Int
+  createdAt     DateTime @default(now())
+  section       TestSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  answers       Answer[]
+
+  @@index([sectionId, order])
+}
+
+model TestAttempt {
+  id                String        @id @default(cuid())
+  tenantId          String
+  testId            String
+  studentId         String
+  status            AttemptStatus @default(IN_PROGRESS)
+  startedAt         DateTime
+  durationSeconds   Int
+  submittedAt       DateTime?
+  autoSubmittedAt   DateTime?
+  breakUsed         Boolean       @default(false)
+  breakStartedAt    DateTime?
+  breakEndsAt       DateTime?
+  pausedSeconds     Int           @default(0)
+  outOfFocusSeconds Int           @default(0)
+  lastBlurAt        DateTime?
+  scorePercent      Float?
+  riskScore         Float?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  test              Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
+  student           User          @relation("StudentAttempts", fields: [studentId], references: [id], onDelete: Cascade)
+  answers           Answer[]
+  aiCheck           AiCheck?
+  behaviorEvents    BehaviorEvent[]
+  auditLogs         AuditLog[]
+
+  @@index([tenantId, studentId])
+  @@index([testId, status])
+}
+
+model Answer {
+  id           String   @id @default(cuid())
+  tenantId     String
+  attemptId    String
+  itemId       String
+  answerText   String
+  isCorrect    Boolean  @default(false)
+  savedAt      DateTime @default(now())
+  timeSpentSec Int      @default(0)
+
+  attempt      TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  item         Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, itemId])
+  @@index([tenantId, attemptId])
+}
+
+model AiCheck {
+  id                     String   @id @default(cuid())
+  tenantId               String
+  attemptId              String   @unique
+  similarityScore        Float
+  stylometryScore        Float
+  aiGeneratedProbability Float
+  speedingFlag           Float    @default(0)
+  tabBlurScore           Float    @default(0)
+  webcamFlag             Float    @default(0)
+  pasteEvents            Int      @default(0)
+  riskScore              Float
+  explanation            String
+  createdAt              DateTime @default(now())
+
+  attempt                TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, riskScore])
+}
+
+model BehaviorEvent {
+  id         String            @id @default(cuid())
+  tenantId   String
+  attemptId  String
+  eventType  BehaviorEventType
+  metadata   Json?
+  occurredAt DateTime          @default(now())
+
+  attempt    TestAttempt       @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, attemptId, eventType])
+}
+
+model AuditLog {
+  id          String          @id @default(cuid())
+  tenantId    String
+  attemptId   String?
+  actorUserId String?
+  action      String
+  verdict     OverrideVerdict?
+  note        String?
+  before      Json?
+  after       Json?
+  createdAt   DateTime        @default(now())
+
+  attempt     TestAttempt?    @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  actor       User?           @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, attemptId])
+  @@index([tenantId, createdAt])
+}

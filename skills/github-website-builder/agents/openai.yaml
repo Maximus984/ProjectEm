@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub Website Builder"
+  short_description: "Build static sites and deploy with GitHub Pages"
+  default_prompt: "Use $github-website-builder to scaffold a static site and set up GitHub Pages deployment in this repository."

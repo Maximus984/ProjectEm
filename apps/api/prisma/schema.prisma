@@ -1,0 +1,1009 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  MANAGER
+  MEDIUM
+  MONITOR
+  FAMILY
+  CLIENT
+  PARENT
+  CHILD
+  MENTOR
+  ADMIN
+}
+
+enum BookingTier {
+  PREMIUM_GENIUS
+  BYOD_MENTORSHIP
+  STANDARD_CARE
+}
+
+enum BookingStatus {
+  SUBMITTED
+  ZOOM_INTERVIEW
+  CONFIRMED
+  SESSION_IN_PROGRESS
+  CHECKED_IN
+  PAID
+  COMPLETED
+  CANCELED
+}
+
+enum CheckinMethod {
+  QR
+  PIN
+}
+
+enum AttendanceStatus {
+  PRESENT
+  TARDY
+  ABSENT
+  EXCUSED
+}
+
+enum MentorApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SessionLiveStatus {
+  EN_ROUTE
+  ARRIVED
+  IN_SESSION
+  COMPLETED
+}
+
+model User {
+  id                          String                @id @default(uuid())
+  firstName                   String
+  lastName                    String
+  email                       String                @unique
+  passwordHash                String
+  phone                       String
+  role                        UserRole              @default(FAMILY)
+  isActive                    Boolean               @default(true)
+  passkeyEnabled              Boolean               @default(false)
+  totpEnabled                 Boolean               @default(false)
+  totpSecret                  String?
+  createdAt                   DateTime              @default(now())
+  updatedAt                   DateTime              @updatedAt
+  deletedAt                   DateTime?
+  familyMemberships           FamilyMember[]
+  childProfile                Child?                @relation("ChildAccount")
+  mentorProfile               Mentor?               @relation("MentorUser")
+  mentorApplications          MentorApplication[]   @relation("MentorApplicationUser")
+  approvedMentorApplications  MentorApplication[]   @relation("MentorApplicationApprover")
+  attendanceMarked            AttendanceRecord[]    @relation("AttendanceMarker")
+  attendanceAudits            AttendanceAudit[]     @relation("AttendanceAuditActor")
+  gradeHistoryEdits           GradeHistory[]        @relation("GradeHistoryActor")
+  approvedChildPages          ChildPage[]           @relation("ChildPageApprover")
+  createdPageVersions         PageVersion[]         @relation("PageVersionCreator")
+  sentMessages                Message[]             @relation("MessageSender")
+  supportTickets              SupportTicket[]
+  loginHistory                LoginHistory[]
+  auditLogs                   AuditLog[]            @relation("AuditActor")
+  sessionCheckins             Checkin[]             @relation("CheckinActor")
+  signedWaivers               Waiver[]              @relation("WaiverSigner")
+  profilePreference           ProfilePreference?
+  refreshTokens               RefreshToken[]
+  createdConversations        Conversation[]        @relation("ConversationCreator")
+  createdAtMentorLiveStatuses SessionStatusUpdate[] @relation("MentorStatusActor")
+  createdIpBans               IpBan[]               @relation("IpBanCreator")
+  diagnosticAttempts          DiagnosticAttempt[]   @relation("DiagnosticAttemptStudent")
+  diagnosticReviews           DiagnosticAttempt[]   @relation("DiagnosticAttemptReviewer")
+  diagnosticEventActors       DiagnosticEvent[]     @relation("DiagnosticEventActor")
+  diagnosticParentReports     DiagnosticParentReport[] @relation("DiagnosticParentReportStudent")
+  diagnosticParentReportsBy   DiagnosticParentReport[] @relation("DiagnosticParentReportGenerator")
+  diagnosticLocks             DiagnosticStudentLock[] @relation("DiagnosticStudentLockStudent")
+  diagnosticLocksBy           DiagnosticStudentLock[] @relation("DiagnosticStudentLockBy")
+
+  @@index([role])
+  @@index([deletedAt])
+}
+
+model Family {
+  id         String         @id @default(uuid())
+  name       String
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  deletedAt  DateTime?
+  members    FamilyMember[]
+  children   Child[]
+  bookings   Booking[]
+  waivers    Waiver[]
+
+  @@index([deletedAt])
+}
+
+model FamilyMember {
+  id          String   @id @default(uuid())
+  familyId    String
+  userId      String
+  billingRole String   @default("PRIMARY")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  family      Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, userId])
+  @@index([deletedAt])
+}
+
+model Child {
+  id               String             @id @default(uuid())
+  familyId         String
+  userId           String?            @unique
+  firstName        String
+  lastName         String
+  dob              DateTime?
+  gradeLevel       String?
+  parentControls   Json?
+  hasCompletedTour Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  deletedAt        DateTime?
+  family           Family             @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user             User?              @relation("ChildAccount", fields: [userId], references: [id], onDelete: SetNull)
+  bookings         Booking[]
+  attendance       AttendanceRecord[]
+  enrollments      Enrollment[]
+  assignmentSubs   AssignmentSubmission[]
+  grades           Grade[]
+  skillRatings     SkillRating[]
+  progressLogs     ProgressLog[]
+  milestones       Milestone[]
+  projects         ChildProject[]
+  childPage        ChildPage?
+  waivers          Waiver[]
+
+  @@index([familyId])
+  @@index([deletedAt])
+}
+
+model MentorApplication {
+  id                  String                  @id @default(uuid())
+  userId              String?
+  approvedById        String?
+  fullName            String
+  email               String
+  phone               String
+  resumeUrl           String
+  hasBackgroundConsent Boolean
+  availabilitySummary String
+  preferredTopics     Json
+  status              MentorApplicationStatus @default(PENDING)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  deletedAt           DateTime?
+  user                User?                   @relation("MentorApplicationUser", fields: [userId], references: [id], onDelete: SetNull)
+  approvedBy          User?                   @relation("MentorApplicationApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Mentor {
+  id                String             @id @default(uuid())
+  userId            String             @unique
+  bio               String?
+  photoUrl          String?
+  isVerified        Boolean            @default(false)
+  verificationBadge String?
+  preferences       Json?
+  availability      Json?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
+  user              User               @relation("MentorUser", fields: [userId], references: [id], onDelete: Cascade)
+  bookings          Booking[]
+  classes           Class[]
+  skillRatings      SkillRating[]
+  progressLogs      ProgressLog[]
+  liveStatus        MentorLiveStatus?
+  sessionUpdates    SessionStatusUpdate[]
+
+  @@index([deletedAt])
+}
+
+model Booking {
+  id                   String              @id @default(uuid())
+  familyId             String
+  childId              String
+  mentorId             String?
+  couponId             String?
+  tier                 BookingTier
+  status               BookingStatus       @default(SUBMITTED)
+  mode                 String
+  timezone             String
+  date                 DateTime
+  startTime            String
+  endTime              String
+  notes                String?
+  requiresHardware     Boolean             @default(false)
+  paymentRequired      Boolean             @default(true)
+  parentOptOutZoomIntro Boolean            @default(false)
+  introCompleted       Boolean             @default(false)
+  qrTokenHash          String?             @unique
+  billingStartAt       DateTime?
+  billingEndAt         DateTime?
+  billedMinutes        Int?
+  owedCents            Int?
+  paidCents            Int?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  deletedAt            DateTime?
+  family               Family              @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  child                Child               @relation(fields: [childId], references: [id], onDelete: Cascade)
+  mentor               Mentor?             @relation(fields: [mentorId], references: [id], onDelete: SetNull)
+  coupon               Coupon?             @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  paymentRecords       Payment[]
+  hardwareReservation  HardwareReservation?
+  checkins             Checkin[]
+  verificationCode     VerificationCode?
+  zoomMeeting          ZoomMeeting?
+  attendanceRecords    AttendanceRecord[]
+  sessionStatusUpdates SessionStatusUpdate[]
+  skillRatings         SkillRating[]
+  progressLogs         ProgressLog[]
+  mentorLiveStatuses   MentorLiveStatus[]
+
+  @@index([familyId])
+  @@index([childId])
+  @@index([mentorId])
+  @@index([status])
+  @@index([date])
+  @@index([deletedAt])
+}
+
+model Payment {
+  id                    String   @id @default(uuid())
+  bookingId             String
+  stripePaymentIntentId String?  @unique
+  stripeCustomerId      String?
+  amountCents           Int
+  currency              String   @default("USD")
+  kind                  String   @default("ONE_OFF")
+  status                String
+  metadata              Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  deletedAt             DateTime?
+  booking               Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model HardwareInventory {
+  id           String                @id @default(uuid())
+  name         String
+  serialNumber String                @unique
+  status       String                @default("AVAILABLE")
+  notes        String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  deletedAt    DateTime?
+  reservations HardwareReservation[]
+
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model HardwareReservation {
+  id         String            @id @default(uuid())
+  bookingId  String            @unique
+  hardwareId String
+  startAt    DateTime
+  endAt      DateTime
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  deletedAt  DateTime?
+  booking    Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  hardware   HardwareInventory @relation(fields: [hardwareId], references: [id], onDelete: Restrict)
+
+  @@index([hardwareId, startAt, endAt])
+  @@index([deletedAt])
+}
+
+model VerificationCode {
+  id          String    @id @default(uuid())
+  bookingId   String    @unique
+  hash        String
+  expiresAt   DateTime
+  attempts    Int       @default(0)
+  lockedUntil DateTime?
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  checkins    Checkin[]
+
+  @@index([expiresAt])
+  @@index([deletedAt])
+}
+
+model Checkin {
+  id                 String           @id @default(uuid())
+  bookingId          String
+  verificationCodeId String?
+  actorUserId        String?
+  method             CheckinMethod
+  checkedInAt        DateTime         @default(now())
+  sourceIp           String?
+  userAgent          String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
+  booking            Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  verificationCode   VerificationCode? @relation(fields: [verificationCodeId], references: [id], onDelete: SetNull)
+  actor              User?            @relation("CheckinActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@index([checkedInAt])
+  @@index([deletedAt])
+}
+
+model ZoomMeeting {
+  id            String   @id @default(uuid())
+  bookingId     String   @unique
+  zoomMeetingId String   @unique
+  joinUrl       String
+  startUrl      String?
+  scheduledTime DateTime
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+  booking       Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledTime])
+  @@index([deletedAt])
+}
+
+model AttendanceRecord {
+  id            String           @id @default(uuid())
+  childId       String
+  bookingId     String?
+  markedById    String?
+  date          DateTime
+  status        AttendanceStatus
+  minutesPresent Int             @default(0)
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  deletedAt     DateTime?
+  child         Child            @relation(fields: [childId], references: [id], onDelete: Cascade)
+  booking       Booking?         @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  markedBy      User?            @relation("AttendanceMarker", fields: [markedById], references: [id], onDelete: SetNull)
+  audits        AttendanceAudit[]
+
+  @@index([childId, date])
+  @@index([deletedAt])
+}
+
+model AttendanceAudit {
+  id           String           @id @default(uuid())
+  attendanceId String
+  actorUserId  String
+  before       Json?
+  after        Json?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  deletedAt    DateTime?
+  attendance   AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  actor        User             @relation("AttendanceAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([attendanceId])
+  @@index([deletedAt])
+}
+
+model Class {
+  id          String       @id @default(uuid())
+  mentorId    String?
+  name        String
+  description String?
+  schedule    Json?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  mentor      Mentor?      @relation(fields: [mentorId], references: [id], onDelete: SetNull)
+  enrollments Enrollment[]
+  assignments Assignment[]
+  grades      Grade[]
+
+  @@index([mentorId])
+  @@index([deletedAt])
+}
+
+model Enrollment {
+  id        String   @id @default(uuid())
+  classId   String
+  childId   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, childId])
+  @@index([deletedAt])
+}
+
+model Assignment {
+  id          String                @id @default(uuid())
+  classId     String
+  title       String
+  description String?
+  dueAt       DateTime?
+  isPublished Boolean               @default(false)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  deletedAt   DateTime?
+  class       Class                 @relation(fields: [classId], references: [id], onDelete: Cascade)
+  submissions AssignmentSubmission[]
+
+  @@index([classId])
+  @@index([dueAt])
+  @@index([deletedAt])
+}
+
+model AssignmentSubmission {
+  id           String     @id @default(uuid())
+  assignmentId String
+  childId      String
+  content      String
+  score        Float?
+  submittedAt  DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  child        Child      @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, childId])
+  @@index([deletedAt])
+}
+
+model Grade {
+  id          String       @id @default(uuid())
+  classId     String
+  childId     String
+  category    String
+  weight      Float
+  score       Float
+  isPublished Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  class       Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  child       Child        @relation(fields: [childId], references: [id], onDelete: Cascade)
+  history     GradeHistory[]
+
+  @@index([classId, childId])
+  @@index([deletedAt])
+}
+
+model GradeHistory {
+  id          String   @id @default(uuid())
+  gradeId     String
+  actorUserId String
+  before      Json?
+  after       Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  grade       Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  actor       User     @relation("GradeHistoryActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([gradeId])
+  @@index([deletedAt])
+}
+
+model SkillCategory {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  ratings     SkillRating[]
+  milestones  Milestone[]
+
+  @@index([deletedAt])
+}
+
+model SkillRating {
+  id         String        @id @default(uuid())
+  childId    String
+  mentorId   String?
+  bookingId  String?
+  categoryId String
+  rating     Int
+  notes      String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  deletedAt  DateTime?
+  child      Child         @relation(fields: [childId], references: [id], onDelete: Cascade)
+  mentor     Mentor?       @relation(fields: [mentorId], references: [id], onDelete: SetNull)
+  booking    Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  category   SkillCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([childId, createdAt])
+  @@index([deletedAt])
+}
+
+model ProgressLog {
+  id          String   @id @default(uuid())
+  childId     String
+  mentorId    String?
+  bookingId   String?
+  title       String
+  summary     String
+  evidenceUrl String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  child       Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  mentor      Mentor?  @relation(fields: [mentorId], references: [id], onDelete: SetNull)
+  booking     Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([childId, createdAt])
+  @@index([deletedAt])
+}
+
+model Milestone {
+  id             String        @id @default(uuid())
+  childId        String
+  categoryId     String?
+  title          String
+  achievedAt     DateTime
+  certificateUrl String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+  child          Child         @relation(fields: [childId], references: [id], onDelete: Cascade)
+  category       SkillCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([childId])
+  @@index([deletedAt])
+}
+
+model ChildProject {
+  id          String   @id @default(uuid())
+  childId     String
+  title       String
+  description String?
+  repoUrl     String?
+  demoUrl     String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  child       Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([childId])
+  @@index([deletedAt])
+}
+
+model ChildPage {
+  id                    String        @id @default(uuid())
+  childId               String        @unique
+  title                 String
+  themeKey              String
+  publicVisible         Boolean       @default(false)
+  requiresParentApproval Boolean      @default(true)
+  approvedAt            DateTime?
+  approvedById          String?
+  draftState            Json?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  deletedAt             DateTime?
+  child                 Child         @relation(fields: [childId], references: [id], onDelete: Cascade)
+  approvedBy            User?         @relation("ChildPageApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  sections              PageSection[]
+  versions              PageVersion[]
+  assets                PageAsset[]
+
+  @@index([deletedAt])
+}
+
+model PageSection {
+  id          String    @id @default(uuid())
+  pageId      String
+  sectionType String
+  sortOrder   Int
+  data        Json
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  page        ChildPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId, sortOrder])
+  @@index([deletedAt])
+}
+
+model PageVersion {
+  id          String    @id @default(uuid())
+  pageId      String
+  version     Int
+  snapshot    Json
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  page        ChildPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  createdBy   User?     @relation("PageVersionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([pageId, version])
+  @@index([deletedAt])
+}
+
+model PageAsset {
+  id         String    @id @default(uuid())
+  pageId     String
+  assetKey   String
+  url        String
+  mimeType   String
+  sizeBytes  Int
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+  page       ChildPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
+  @@index([deletedAt])
+}
+
+model Conversation {
+  id           String    @id @default(uuid())
+  type         String
+  familyId     String?
+  childId      String?
+  mentorId     String?
+  createdById  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  createdBy    User      @relation("ConversationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  messages     Message[]
+
+  @@index([familyId])
+  @@index([childId])
+  @@index([mentorId])
+  @@index([deletedAt])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String
+  body           String
+  attachments    Json?
+  isRead         Boolean      @default(false)
+  readAt         DateTime?
+  flagged        Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+
+  @@index([conversationId, createdAt])
+  @@index([deletedAt])
+}
+
+model MentorLiveStatus {
+  id               String            @id @default(uuid())
+  mentorId         String            @unique
+  currentBookingId String?
+  status           SessionLiveStatus
+  etaMinutes       Int?
+  locationNote     String?
+  ratingAverage    Float?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
+  mentor           Mentor            @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+  currentBooking   Booking?          @relation(fields: [currentBookingId], references: [id], onDelete: SetNull)
+
+  @@index([deletedAt])
+}
+
+model SessionStatusUpdate {
+  id          String            @id @default(uuid())
+  bookingId   String
+  mentorId    String?
+  actorUserId String?
+  status      SessionLiveStatus
+  note        String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  deletedAt   DateTime?
+  booking     Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  mentor      Mentor?           @relation(fields: [mentorId], references: [id], onDelete: SetNull)
+  actor       User?             @relation("MentorStatusActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId, createdAt])
+  @@index([deletedAt])
+}
+
+model ProfilePreference {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  theme         String   @default("galaxy-dark")
+  fontScale     String   @default("normal")
+  motionReduced Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([deletedAt])
+}
+
+model MediaAsset {
+  id          String   @id @default(uuid())
+  uploaderId  String?
+  assetKey    String   @unique
+  url         String
+  mimeType    String
+  sizeBytes   Int
+  isScanned   Boolean  @default(false)
+  isClean     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([uploaderId])
+  @@index([deletedAt])
+}
+
+model LoginHistory {
+  id         String   @id @default(uuid())
+  userId      String
+  ipAddress   String?
+  userAgent   String?
+  success     Boolean
+  deviceMeta  Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([deletedAt])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String?
+  action      String
+  entity      String
+  entityId    String
+  before      Json?
+  after       Json?
+  ipAddress   String?
+  userAgent   String?
+  deviceMeta  Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model Waiver {
+  id         String   @id @default(uuid())
+  familyId   String
+  childId    String?
+  signedById String
+  waiverType String
+  signedAt   DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  family     Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  child      Child?   @relation(fields: [childId], references: [id], onDelete: SetNull)
+  signedBy   User     @relation("WaiverSigner", fields: [signedById], references: [id], onDelete: Restrict)
+
+  @@index([familyId])
+  @@index([deletedAt])
+}
+
+model Coupon {
+  id         String    @id @default(uuid())
+  code       String    @unique
+  discountType String
+  value      Int
+  isActive   Boolean   @default(true)
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+  bookings   Booking[]
+
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model SupportTicket {
+  id          String   @id @default(uuid())
+  userId      String?
+  subject     String
+  category    String
+  message     String
+  status      String   @default("OPEN")
+  responses   Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([deletedAt])
+}
+
+model IpBan {
+  id          String   @id @default(uuid())
+  ipAddress   String   @unique
+  reason      String?
+  createdById String?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  createdBy   User?    @relation("IpBanCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([ipAddress, expiresAt, deletedAt])
+}
+
+model WorkspacePolicy {
+  id               String   @id @default("default")
+  timezone         String   @default("America/Los_Angeles")
+  enabled          Boolean  @default(true)
+  ownerStartHour   Int      @default(0)
+  ownerEndHour     Int      @default(24)
+  managerStartHour Int      @default(6)
+  managerEndHour   Int      @default(22)
+  mediumStartHour  Int      @default(7)
+  mediumEndHour    Int      @default(21)
+  monitorStartHour Int      @default(8)
+  monitorEndHour   Int      @default(20)
+  mentorStartHour  Int      @default(6)
+  mentorEndHour    Int      @default(22)
+  clientStartHour  Int      @default(6)
+  clientEndHour    Int      @default(22)
+  familyStartHour  Int      @default(5)
+  familyEndHour    Int      @default(23)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  ipAddress  String?
+  deviceMeta Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([deletedAt])
+}
+
+model DiagnosticAttempt {
+  id                    String                 @id @default(uuid())
+  attemptCode           String                 @unique
+  studentUserId         String
+  grade                 Int
+  testId                String
+  status                String                 @default("IN_PROGRESS")
+  startedAt             DateTime
+  submittedAt           DateTime?
+  questionOrder         Json
+  answerStore           Json?
+  breakSummary          Json?
+  focusSummary          Json?
+  finalSummary          Json?
+  evidenceSummary       Json?
+  reviewerId            String?
+  reviewedAt            DateTime?
+  reviewVerdict         String?
+  reviewNotes           String?
+  reassignOfId          String?
+  archivedReason        String?
+  forceProctoring       Boolean                @default(false)
+  strictFocusMode       Boolean                @default(false)
+  disableBreak          Boolean                @default(false)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
+  student               User                   @relation("DiagnosticAttemptStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+  reviewer              User?                  @relation("DiagnosticAttemptReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  events                DiagnosticEvent[]
+  parentReports         DiagnosticParentReport[]
+
+  @@index([studentUserId, createdAt])
+  @@index([grade, status])
+  @@index([deletedAt])
+}
+
+model DiagnosticEvent {
+  id               String            @id @default(uuid())
+  attemptId        String
+  actorUserId      String?
+  eventType        String
+  questionId       String?
+  eventAt          DateTime
+  payloadEncrypted String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
+  attempt          DiagnosticAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  actor            User?             @relation("DiagnosticEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([attemptId, eventAt])
+  @@index([eventType, createdAt])
+  @@index([questionId])
+  @@index([deletedAt])
+}
+
+model DiagnosticParentReport {
+  id              String            @id @default(uuid())
+  attemptId       String
+  studentUserId   String
+  generatedById   String?
+  deliveryChannel String            @default("EMAIL")
+  deliveryStatus  String            @default("GENERATED")
+  payload         Json
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
+  attempt         DiagnosticAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  student         User              @relation("DiagnosticParentReportStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+  generatedBy     User?             @relation("DiagnosticParentReportGenerator", fields: [generatedById], references: [id], onDelete: SetNull)
+
+  @@index([attemptId, createdAt])
+  @@index([studentUserId, createdAt])
+  @@index([deletedAt])
+}
+
+model DiagnosticStudentLock {
+  id            String   @id @default(uuid())
+  studentUserId String   @unique
+  lockedById    String?
+  reason        String
+  isActive      Boolean  @default(true)
+  expiresAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+  student       User     @relation("DiagnosticStudentLockStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+  lockedBy      User?    @relation("DiagnosticStudentLockBy", fields: [lockedById], references: [id], onDelete: SetNull)
+
+  @@index([studentUserId, isActive, expiresAt])
+  @@index([deletedAt])
+}

@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "types": [
+      "vite/client"
+    ],
+    "moduleResolution": "Bundler",
+    "noImplicitAny": false,
+    "baseUrl": ".",
+    "paths": {
+      "@projectm/contracts": [
+        "../../packages/contracts/src/index.ts"
+      ],
+      "@projectm/contracts/*": [
+        "../../packages/contracts/src/*"
+      ]
+    }
+  },
+  "include": [
+    "src"
+  ]
+}

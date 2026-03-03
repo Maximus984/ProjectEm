@@ -1,0 +1,31 @@
+version: '3.9'
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: projectm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: projectm
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: projectm-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: projectm
+      MINIO_ROOT_PASSWORD: projectm123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
+volumes:
+  pgdata:
+  miniodata:

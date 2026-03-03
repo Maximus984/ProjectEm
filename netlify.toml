@@ -1,0 +1,29 @@
+[build]
+  command = "npm --workspace @projectm/contracts run build && npm --workspace @projectm/api run db:generate && npm --workspace @projectm/api run db:push && npm --workspace @projectm/api run db:seed && npm --workspace @projectm/api run build && npm --workspace @projectm/web run build"
+  publish = "apps/web/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  external_node_modules = ["@prisma/client", "prisma"]
+  included_files = ["node_modules/.prisma/client/**", "apps/api/prisma/**"]
+
+[[redirects]]
+  from = "/api/v1/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/v1"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
