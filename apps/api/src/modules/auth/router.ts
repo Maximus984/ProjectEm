@@ -5,7 +5,6 @@ import {
   refreshTokenSchema,
   type UserRole
 } from "@projectm/contracts";
-import speakeasy from "speakeasy";
 import { prisma } from "../../config/prisma.js";
 import { validateBody } from "../../middleware/validate.js";
 import { sha256 } from "../../utils/hash.js";
@@ -201,8 +200,7 @@ authRouter.post("/login", validateBody(authLoginSchema), async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
-      passkeyEnabled: user.passkeyEnabled,
-      totpEnabled: user.totpEnabled
+      passkeyEnabled: user.passkeyEnabled
     },
     tokens
   });
@@ -263,32 +261,4 @@ authRouter.post("/webauthn/login", async (_req, res) => {
     message: "Passkey authentication endpoint is scaffolded.",
     next: "Integrate @simplewebauthn/server verifyAuthenticationResponse()"
   });
-});
-
-authRouter.post("/2fa/verify", requireAuth, async (req, res) => {
-  const { code } = req.body as { code?: string };
-  if (!code) {
-    res.status(400).json({ code: "VALIDATION_ERROR", message: "Missing code." });
-    return;
-  }
-
-  const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
-  if (!user?.totpSecret) {
-    res.status(400).json({ code: "TOTP_NOT_SETUP", message: "2FA is not configured." });
-    return;
-  }
-
-  const ok = speakeasy.totp.verify({
-    secret: user.totpSecret,
-    encoding: "base32",
-    token: code,
-    window: 1
-  });
-
-  if (!ok) {
-    res.status(401).json({ code: "TOTP_INVALID", message: "Invalid 2FA code." });
-    return;
-  }
-
-  res.json({ verified: true });
 });

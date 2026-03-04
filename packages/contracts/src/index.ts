@@ -111,8 +111,7 @@ export type AuthRegisterInput = z.infer<typeof authRegisterSchema>;
 
 export const authLoginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(1),
-  totpCode: z.string().min(6).max(8).optional()
+  password: z.string().min(1)
 });
 export type AuthLoginInput = z.infer<typeof authLoginSchema>;
 

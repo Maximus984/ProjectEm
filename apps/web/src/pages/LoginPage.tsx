@@ -22,7 +22,7 @@ type LoginResponse = {
 };
 
 export function LoginPage() {
-  const [form, setForm] = useState<AuthLoginInput>({ email: "", password: "", totpCode: "" });
+  const [form, setForm] = useState<AuthLoginInput>({ email: "", password: "" });
   const setSession = useAuthStore((state) => state.setSession);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -33,10 +33,7 @@ export function LoginPage() {
     mutationFn: (payload: AuthLoginInput) =>
       api<LoginResponse>("/auth/login", {
         method: "POST",
-        body: JSON.stringify({
-          ...payload,
-          totpCode: payload.totpCode || undefined
-        })
+        body: JSON.stringify(payload)
       }),
     onSuccess: (data) => {
       setSession({
@@ -101,12 +98,6 @@ export function LoginPage() {
           value={form.password}
           onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
           required
-        />
-        <input
-          className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm"
-          placeholder="2FA code (if enabled)"
-          value={form.totpCode ?? ""}
-          onChange={(event) => setForm((prev) => ({ ...prev, totpCode: event.target.value }))}
         />
         <button type="submit" className="rounded-full bg-aurora px-4 py-2 text-sm font-semibold text-ink">
           {mutation.isPending ? "Signing in..." : "Sign In"}
