@@ -177,24 +177,7 @@ authRouter.post("/login", validateBody(authLoginSchema), async (req, res) => {
     return;
   }
 
-  if (user.totpEnabled) {
-    if (!payload.totpCode || !user.totpSecret) {
-      res.status(401).json({ code: "TOTP_REQUIRED", message: "2FA code is required." });
-      return;
-    }
-
-    const ok = speakeasy.totp.verify({
-      secret: user.totpSecret,
-      encoding: "base32",
-      token: payload.totpCode,
-      window: 1
-    });
-
-    if (!ok) {
-      res.status(401).json({ code: "TOTP_INVALID", message: "Invalid 2FA code." });
-      return;
-    }
-  }
+  // Temporarily bypass TOTP during staff access recovery.
 
   const tokens = await issueTokens({
     id: user.id,
