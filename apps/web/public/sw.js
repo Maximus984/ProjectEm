@@ -1,4 +1,4 @@
-const CACHE_NAME = "projectm-shell-v3";
+const CACHE_NAME = "projectm-shell-v4";
 const scopePath = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 
 const withScope = (path) => `${scopePath}${path}`;
