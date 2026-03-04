@@ -5,6 +5,8 @@ import { Link } from "react-router-dom";
 import { useUiSound } from "../hooks/use-ui-sound";
 import { useAuthStore } from "../store/auth-store";
 
+const BASE_URL = import.meta.env.BASE_URL;
+
 const benefits = [
   "Mentor-first learning: One-on-one mentorship focused on tech, logic, and leadership, not babysitting.",
   "Project-based progression: Structured modules plus portfolio building show measurable growth.",
@@ -181,7 +183,7 @@ export function HomePage() {
 
         <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
           <img
-            src="/branding/maxx-forge-logo.png"
+            src={`${BASE_URL}branding/maxx-forge-logo.png`}
             alt="MAXX Forge Studio"
             className="w-40 drop-shadow-[0_0_26px_rgba(106,245,255,0.35)] md:w-52"
           />
