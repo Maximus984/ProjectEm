@@ -45,6 +45,8 @@ const couponUpdateSchema = z.object({
 const workspacePolicyUpdateSchema = z.object({
   timezone: z.string().min(3).max(60).optional(),
   enabled: z.boolean().optional(),
+  qGateEnabled: z.boolean().optional(),
+  qGateMessage: z.string().min(8).max(240).optional(),
   ownerStartHour: z.number().int().min(0).max(23).optional(),
   ownerEndHour: z.number().int().min(1).max(24).optional(),
   managerStartHour: z.number().int().min(0).max(23).optional(),
@@ -154,6 +156,17 @@ adminRouter.patch(
   requireRole([...writableAdminRoleValues]),
   validateBody(workspacePolicyUpdateSchema),
   async (req, res) => {
+    if (
+      (req.body.qGateEnabled !== undefined || req.body.qGateMessage !== undefined) &&
+      req.auth?.role !== "OWNER"
+    ) {
+      res.status(403).json({
+        code: "FORBIDDEN_Q_GATE",
+        message: "Only OWNER can update Q Gate settings."
+      });
+      return;
+    }
+
     const policy = await prisma.workspacePolicy.upsert({
       where: { id: "default" },
       create: {

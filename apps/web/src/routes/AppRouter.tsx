@@ -1,7 +1,9 @@
 import { isAdminRole, isFamilyRole } from "@projectm/contracts";
+import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
+import { api } from "../lib/api";
 import { AdminPage } from "../pages/AdminPage";
 import { BookPage } from "../pages/BookPage";
 import { ClassroomPage } from "../pages/ClassroomPage";
@@ -13,11 +15,17 @@ import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { PrivacyPage } from "../pages/PrivacyPage";
+import { QGatePage } from "../pages/QGatePage";
 import { RegisterPage } from "../pages/RegisterPage";
 import { SupportPage } from "../pages/SupportPage";
 import { TiersPage } from "../pages/TiersPage";
 import { WorkspacesPage } from "../pages/WorkspacesPage";
 import { useAuthStore } from "../store/auth-store";
+
+type QGateStatus = {
+  qGateEnabled: boolean;
+  qGateMessage: string;
+};
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const token = useAuthStore((state) => state.accessToken);
@@ -75,6 +83,21 @@ function RequireClassroom({ children }: { children: JSX.Element }) {
 
 export function AppRouter() {
   const location = useLocation();
+  const role = useAuthStore((state) => state.role);
+  const qGateQuery = useQuery({
+    queryKey: ["q-gate-status"],
+    queryFn: () => api<QGateStatus>("/access/q-gate"),
+    refetchInterval: 15_000
+  });
+
+  const isOwner = role === "OWNER";
+  const isLoginRoute = location.pathname === "/login";
+  const qGateEnabled = Boolean(qGateQuery.data?.qGateEnabled);
+  const qGateMessage = qGateQuery.data?.qGateMessage?.trim() || "Things will be back again soon.";
+
+  if (qGateEnabled && !isOwner && !isLoginRoute) {
+    return <QGatePage message={qGateMessage} />;
+  }
 
   return (
     <AppShell>

@@ -34,3 +34,17 @@ healthRouter.get("/metrics", async (_req, res) => {
     ].join("\n")
   );
 });
+
+healthRouter.get("/access/q-gate", async (_req, res) => {
+  const policy = await prisma.workspacePolicy.upsert({
+    where: { id: "default" },
+    create: { id: "default" },
+    update: {}
+  });
+
+  res.json({
+    qGateEnabled: policy.qGateEnabled,
+    qGateMessage: policy.qGateMessage,
+    updatedAt: policy.updatedAt
+  });
+});

@@ -34,6 +34,8 @@ type WorkspacePolicy = {
   id: string;
   timezone: string;
   enabled: boolean;
+  qGateEnabled: boolean;
+  qGateMessage: string;
   ownerStartHour: number;
   ownerEndHour: number;
   managerStartHour: number;
@@ -169,7 +171,12 @@ export function AdminPage() {
 
   useEffect(() => {
     if (policyQuery.data?.policy && !policyDraft) {
-      setPolicyDraft(policyQuery.data.policy);
+      const { qGateEnabled, qGateMessage, ...rest } = policyQuery.data.policy;
+      setPolicyDraft({
+        ...rest,
+        qGateEnabled: Boolean(qGateEnabled),
+        qGateMessage: qGateMessage || "Things will be back again soon."
+      });
     }
   }, [policyDraft, policyQuery.data]);
 
@@ -302,10 +309,12 @@ export function AdminPage() {
   const isAdmin = role ? isAdminRole(role) : false;
   const canWrite = role ? canWriteAdmin(role) : false;
   const canDelete = role ? canDeleteAdmin(role) : false;
+  const canManageQGate = role === "OWNER";
   const capabilityBadges = [
     `Current role: ${role ?? "NONE"}`,
     canWrite ? "Write Access Enabled" : "Read Only",
-    canDelete ? "Delete Privileges Enabled" : "No Delete Privileges"
+    canDelete ? "Delete Privileges Enabled" : "No Delete Privileges",
+    canManageQGate ? "Q Gate Control Enabled" : "Q Gate View Only"
   ];
 
   return (
@@ -679,6 +688,45 @@ export function AdminPage() {
                 </label>
               </div>
 
+              <div className="rounded-2xl border border-cyan-300/25 bg-cyan-300/5 p-3">
+                <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Q Gate Maintenance Mode</p>
+                <p className="mt-1 text-xs text-mist">
+                  When enabled, all non-owner users are redirected to a glitch maintenance screen.
+                </p>
+
+                <label className="mt-3 flex items-center gap-2 text-xs text-mist">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(policyDraft.qGateEnabled)}
+                    onChange={(event) =>
+                      setPolicyDraft((prev) =>
+                        prev ? { ...prev, qGateEnabled: event.target.checked } : prev
+                      )
+                    }
+                    disabled={!canManageQGate}
+                  />
+                  Enable Q Gate
+                </label>
+
+                <textarea
+                  className="input-shell mt-2 min-h-20 w-full px-3 py-2 text-sm"
+                  value={policyDraft.qGateMessage ?? ""}
+                  onChange={(event) =>
+                    setPolicyDraft((prev) =>
+                      prev ? { ...prev, qGateMessage: event.target.value } : prev
+                    )
+                  }
+                  disabled={!canManageQGate}
+                  maxLength={240}
+                />
+
+                {!canManageQGate ? (
+                  <p className="mt-2 text-xs text-amber-200">
+                    Only OWNER can change Q Gate settings.
+                  </p>
+                ) : null}
+              </div>
+
               {[
                 ["manager", "Manager"],
                 ["medium", "Medium"],
@@ -731,7 +779,19 @@ export function AdminPage() {
               <button
                 className="button-primary px-4 py-2 text-xs disabled:opacity-40"
                 disabled={!canWrite || policyMutation.isPending || !policyDraft}
-                onClick={() => policyDraft && policyMutation.mutate(policyDraft)}
+                onClick={() => {
+                  if (!policyDraft) {
+                    return;
+                  }
+
+                  if (canManageQGate) {
+                    policyMutation.mutate(policyDraft);
+                    return;
+                  }
+
+                  const { qGateEnabled: _qGateEnabled, qGateMessage: _qGateMessage, ...rest } = policyDraft;
+                  policyMutation.mutate(rest);
+                }}
               >
                 Save Workspace Policy
               </button>

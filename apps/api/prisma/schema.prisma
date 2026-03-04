@@ -878,6 +878,8 @@ model WorkspacePolicy {
   id               String   @id @default("default")
   timezone         String   @default("America/Los_Angeles")
   enabled          Boolean  @default(true)
+  qGateEnabled     Boolean  @default(false)
+  qGateMessage     String   @default("Things will be back again soon.")
   ownerStartHour   Int      @default(0)
   ownerEndHour     Int      @default(24)
   managerStartHour Int      @default(6)
