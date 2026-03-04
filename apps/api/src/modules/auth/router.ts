@@ -176,7 +176,7 @@ authRouter.post("/login", validateBody(authLoginSchema), async (req, res) => {
     return;
   }
 
-  // Temporarily bypass TOTP during staff access recovery.
+  // 2FA is disabled; login uses email/password only.
 
   const tokens = await issueTokens({
     id: user.id,
