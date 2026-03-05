@@ -1,4 +1,5 @@
 const normalizeBase = (value: string) => value.replace(/\/+$/, "");
+const GITHUB_PAGES_API_BASE = "https://maxxforgegeniuses.com/api/v1";
 
 function resolveApiBase() {
   const configured = import.meta.env.VITE_API_BASE?.trim();
@@ -11,6 +12,10 @@ function resolveApiBase() {
     (window.location.hostname.endsWith(".netlify.app") || window.location.hostname.endsWith(".netlify.live"))
   ) {
     return "/.netlify/functions/api";
+  }
+
+  if (typeof window !== "undefined" && window.location.hostname.endsWith(".github.io")) {
+    return GITHUB_PAGES_API_BASE;
   }
 
   return "/api/v1";
