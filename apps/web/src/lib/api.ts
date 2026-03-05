@@ -1,3 +1,5 @@
+import { dispatchSupportContext } from "./support-context";
+
 const normalizeBase = (value: string) => value.replace(/\/+$/, "");
 const GITHUB_PAGES_API_BASE = "https://maxxforgegeniuses.com/api/v1";
 
@@ -42,22 +44,35 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Network request failed.";
-    throw new Error(
-      `Unable to reach the service right now (${message}). Please refresh and try again.`
-    );
+    const supportMessage = `Unable to reach the service right now (${message}). Please refresh and try again.`;
+    dispatchSupportContext({
+      title: "Connection Error",
+      message: supportMessage,
+      source: "api",
+      endpoint: `${API_BASE}${path}`
+    });
+    throw new Error(supportMessage);
   }
 
   if (!response.ok) {
     const rawText = await response.text().catch(() => "");
+    let errorMessage = "API request failed.";
     if (rawText.trim()) {
       try {
         const payload = JSON.parse(rawText) as { message?: string };
-        throw new Error(payload.message ?? rawText);
+        errorMessage = payload.message ?? rawText;
       } catch {
-        throw new Error(rawText);
+        errorMessage = rawText;
       }
     }
-    throw new Error("API request failed.");
+    dispatchSupportContext({
+      title: "Service Error",
+      message: errorMessage,
+      source: "api",
+      endpoint: `${API_BASE}${path}`,
+      status: response.status
+    });
+    throw new Error(errorMessage);
   }
 
   if (response.status === 204) {
